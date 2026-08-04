@@ -36,7 +36,64 @@ async function run() {
         // await client.db("admin").command({ ping: 1 });
 
 
-        
+        // Connect Database with Server
+
+        const db = client.db('LegalEase')
+
+
+        // Creating Data Collections in Database
+
+
+        const lawyerCollection = db.collection('lawyers');
+        const clientsCollection = db.collection('clients');
+        const hiringCollection = db.collection('hiring');
+        const servicesCollection = db.collection('services');
+        const paymentCollection = db.collection('payment');
+        const commentsCollection = db.collection('comments');
+        const transactionsCollection = db.collection('transactions');
+
+
+
+
+        // Start API
+
+
+        // Post API for creating Lawyers
+
+        app.post('/api/lawyer', async (req, res) => {
+
+            const {
+                lawyerImage,
+                lawyerName,
+                specialization,
+                hourlyRate,
+                averageRating,
+                totalReviews,
+                yearsExperience,
+                languages,
+                location,
+                isVerified
+            } = req.body;
+
+            const addData = {
+                lawyerImage,
+                lawyerName,
+                specialization,
+                hourlyRate,
+                averageRating,
+                totalReviews,
+                yearsExperience,
+                languages,
+                location,
+                isVerified,
+                availabilityStatus: "busy",
+                createdAt: new Date(),
+            };
+
+            const result = await lawyerCollection.insertOne(addData);
+            return result;
+
+        });
 
 
 
