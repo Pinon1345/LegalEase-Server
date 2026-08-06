@@ -189,7 +189,6 @@ async function run() {
         });
 
 
-        
         // 5. DELETE API for deleting Lawyer Profile
 
         
