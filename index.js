@@ -58,20 +58,35 @@ async function run() {
         // Start API
 
 
-        
-        // GET API to fetch single lawyer profile by Auth User ID
+
+        // ==================== LAWYER ROUTES ====================
+
+
+
+        // 1. GET API to fetch ALL lawyers (Fixes the /lawyers page & specializations filter)
+
+
+        app.get('/api/lawyers', async (req, res) => {
+            try {
+                const lawyers = await lawyerCollection.find({}).toArray();
+                res.status(200).send(lawyers);
+            } catch (error) {
+                console.error("Error fetching lawyers:", error);
+                res.status(500).send({ message: "Failed to fetch lawyers" });
+            }
+        });
+
+
+        // 2. GET API to fetch single lawyer profile by Auth User ID
 
 
         app.get('/api/lawyers/user/:userId', async (req, res) => {
             try {
                 const { userId } = req.params;
-
-                // Query by the userId string stored in the document
-
                 const result = await lawyerCollection.findOne({ userId: userId });
 
                 if (!result) {
-                    return res.status(404).send({ message: "Lawyer not found" });
+                    return res.status(404).send({ message: "Lawyer profile not found" });
                 }
 
                 res.send(result);
@@ -82,92 +97,116 @@ async function run() {
         });
 
 
-        // Post API for creating Lawyers
+        // 3. POST API for creating Lawyer Profile
+
 
         app.post('/api/lawyer', async (req, res) => {
+            try {
+                const {
+                    userId,
+                    lawyerImage,
+                    lawyerName,
+                    specialization,
+                    hourlyRate,
+                    averageRating,
+                    totalReviews,
+                    yearsExperience,
+                    languages,
+                    location,
+                    isVerified
+                } = req.body;
 
-            const {
-                userId,
-                lawyerImage,
-                lawyerName,
-                specialization,
-                hourlyRate,
-                averageRating,
-                totalReviews,
-                yearsExperience,
-                languages,
-                location,
-                isVerified
-            } = req.body;
+                const addData = {
+                    userId,
+                    lawyerImage: lawyerImage || "https://i.ibb.co/0jK2cQVR/lawyer-1.jpg",
+                    lawyerName,
+                    specialization,
+                    hourlyRate: Number(hourlyRate) || 0,
+                    averageRating: Number(averageRating) || 5,
+                    totalReviews: Number(totalReviews) || 0,
+                    yearsExperience: Number(yearsExperience) || 0,
+                    languages: Array.isArray(languages) ? languages : (languages ? languages.split(',').map(l => l.trim()) : []),
+                    location,
+                    isVerified: isVerified ?? true,
+                    availabilityStatus: "available",
+                    createdAt: new Date(),
+                };
 
-            const addData = {
-                userId,
-                lawyerImage,
-                lawyerName,
-                specialization,
-                hourlyRate,
-                averageRating,
-                totalReviews,
-                yearsExperience,
-                languages,
-                location,
-                isVerified,
-                availabilityStatus: "busy",
-                createdAt: new Date(),
-            };
-
-            const result = await lawyerCollection.insertOne(addData);
-            return res.send(result);
-
+                const result = await lawyerCollection.insertOne(addData);
+                res.status(201).send(result);
+            } catch (error) {
+                console.error("Error creating lawyer:", error);
+                res.status(500).send({ message: "Failed to create lawyer profile" });
+            }
         });
 
 
-        // Patch API for update Lawyer profile
+        // 4. PATCH API to update Lawyer profile
+
 
         app.patch('/api/lawyer/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const {
+                    lawyerImage,
+                    lawyerName,
+                    specialization,
+                    hourlyRate,
+                    averageRating,
+                    totalReviews,
+                    yearsExperience,
+                    languages,
+                    location,
+                    isVerified,
+                    availabilityStatus
+                } = req.body;
 
-            const { id } = req.params;
+                const updateData = {
+                    lawyerImage,
+                    lawyerName,
+                    specialization,
+                    hourlyRate: Number(hourlyRate),
+                    averageRating: Number(averageRating),
+                    totalReviews: Number(totalReviews),
+                    yearsExperience: Number(yearsExperience),
+                    languages: Array.isArray(languages) ? languages : (languages ? languages.split(',').map(l => l.trim()) : []),
+                    location,
+                    isVerified,
+                    availabilityStatus: availabilityStatus || "available",
+                    updatedAt: new Date(),
+                };
 
-            const {
-                lawyerImage,
-                lawyerName,
-                specialization,
-                hourlyRate,
-                averageRating,
-                totalReviews,
-                yearsExperience,
-                languages,
-                location,
-                isVerified
-            } = req.body;
+                const result = await lawyerCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: updateData }
+                );
 
-            const updateData = {
-                lawyerImage,
-                lawyerName,
-                specialization,
-                hourlyRate,
-                averageRating,
-                totalReviews,
-                yearsExperience,
-                languages,
-                location,
-                isVerified,
-                availabilityStatus: "busy",
-                createdAt: new Date(),
-            };
+                res.send(result);
+            } catch (error) {
+                console.error("Error updating lawyer profile:", error);
+                res.status(500).send({ message: "Failed to update profile" });
+            }
+        });
 
-            const result = await lawyerCollection.updateOne(
-                { _id: new ObjectId(id) },
-                {
-                    $set: {
-                        ...updateData,
-                    }
+
+        
+        // 5. DELETE API for deleting Lawyer Profile
+
+        
+        app.delete('/api/lawyer/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const result = await lawyerCollection.deleteOne({ _id: new ObjectId(id) });
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).send({ message: "Lawyer profile not found" });
                 }
-            );
 
-            console.log(result);
-            return res.send(result);
-
+                res.send({ success: true, message: "Profile deleted successfully", result });
+            } catch (error) {
+                console.error("Error deleting lawyer profile:", error);
+                res.status(500).send({ message: "Failed to delete lawyer profile" });
+            }
         });
 
 
