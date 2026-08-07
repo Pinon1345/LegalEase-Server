@@ -59,7 +59,7 @@ async function run() {
 
 
 
-        // ==================== LAWYER ROUTES ====================
+        // =============== LAWYER ROUTES ===============
 
 
 
@@ -77,7 +77,19 @@ async function run() {
         });
 
 
-        // 2. GET API to fetch single lawyer profile by Auth User ID
+        // 2. GET API to fetch Single Lawyer 
+
+
+        app.get('/api/single-lawyers/:id', async (req, res) => {
+            const { id } = req.params;
+            const query = { _id: new ObjectId(id) };
+            const result = await lawyerCollection.findOne(query);
+
+            res.send(result);
+        })
+
+
+        // 3. GET API to fetch single lawyer profile by Auth User ID
 
 
         app.get('/api/lawyers/user/:userId', async (req, res) => {
@@ -97,7 +109,7 @@ async function run() {
         });
 
 
-        // 3. POST API for creating Lawyer Profile
+        // 4. POST API for creating Lawyer Profile
 
 
         app.post('/api/lawyer', async (req, res) => {
@@ -141,7 +153,7 @@ async function run() {
         });
 
 
-        // 4. PATCH API to update Lawyer profile
+        // 5. PATCH API to update Lawyer profile
 
 
         app.patch('/api/lawyer/:id', async (req, res) => {
@@ -189,9 +201,9 @@ async function run() {
         });
 
 
-        // 5. DELETE API for deleting Lawyer Profile
+        // 6. DELETE API for deleting Lawyer Profile
 
-        
+
         app.delete('/api/lawyer/:id', async (req, res) => {
             try {
                 const { id } = req.params;
