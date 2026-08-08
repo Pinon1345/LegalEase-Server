@@ -29,7 +29,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
 
-        // Connect the client to the server	(optional starting in v4.7)
+        // Connect the client to the server (optional starting in v4.7)
         // await client.connect();
 
         // Send a ping to confirm a successful connection
@@ -49,6 +49,8 @@ async function run() {
         const hiringCollection = db.collection('hiring');
         const servicesCollection = db.collection('services');
         const paymentCollection = db.collection('payment');
+        const bookingCollection = db.collection('booking');
+        const bookingPaymentCollection = db.collection('booking-payment');
         const commentsCollection = db.collection('comments');
         const transactionsCollection = db.collection('transactions');
 
@@ -95,13 +97,34 @@ async function run() {
         app.get('/api/lawyers/user/:userId', async (req, res) => {
             try {
                 const { userId } = req.params;
-                const result = await lawyerCollection.findOne({ userId: userId });
 
-                if (!result) {
-                    return res.status(404).send({ message: "Lawyer profile not found" });
+                // Find lawyer profile and completed payment record
+
+                const lawyerProfile = await lawyerCollection.findOne({ userId: userId });
+                const paymentRecord = await paymentCollection.findOne({
+                    userId: userId,
+                    verifyStatus: "completed"
+                });
+
+                // Computed verification status: true if paid OR if manually marked verified in lawyer profile
+
+                const isVerified = Boolean(paymentRecord || lawyerProfile?.isVerified);
+
+                // Case A: No lawyer profile created yet
+
+                if (!lawyerProfile) {
+                    return res.status(200).send({
+                        isVerified: isVerified,
+                        profile: null
+                    });
                 }
 
-                res.send(result);
+                // Case B: Profile exists -> Return profile data with dynamic isVerified
+
+                res.send({
+                    ...lawyerProfile,
+                    isVerified: isVerified
+                });
             } catch (error) {
                 console.error("Error fetching lawyer by userId:", error);
                 res.status(500).send({ message: "Server error" });
@@ -109,7 +132,84 @@ async function run() {
         });
 
 
-        // 4. POST API for creating Lawyer Profile
+        // 3b. POST API to save verification payment state
+
+
+        app.post('/api/lawyers/verify-payment', async (req, res) => {
+            try {
+                const { userId, sessionId } = req.body;
+                if (!userId) {
+                    return res.status(400).send({ message: "userId is required" });
+                }
+
+                const paymentDoc = {
+                    userId,
+                    sessionId: sessionId || null,
+                    type: "lawyer_verification",
+                    verifyStatus: "completed",
+                    createdAt: new Date()
+                };
+
+                await paymentCollection.updateOne(
+                    { userId: userId },
+                    { $set: paymentDoc },
+                    { upsert: true }
+                );
+
+                res.status(200).send({ success: true, message: "Payment verification saved" });
+            } catch (error) {
+                console.error("Error saving payment verification:", error);
+                res.status(500).send({ message: "Failed to save payment verification" });
+            }
+        });
+
+
+        // 4. POST API for Lawyer Hiring Payment
+
+        app.post('/api/lawyers/booking-payment', async (req, res) => {
+            try {
+                const { amount, lawyerId, lawyerName, paymentStatus, email, paymentType, transactionId } = req.body;
+                // console.log(req.body);
+
+                const bookingData = {
+                    lawyerId,
+                    lawyerName,
+                    amount,
+                    clientEmail: email,
+                    paymentType,
+                    transactionId,
+                    paymentStatus,
+                    bookingDate: new Date(),
+                }
+
+                const isBookingExist = await bookingCollection.findOne({ transactionId });
+                if (isBookingExist) {
+                    return res.status(407).send({ message: "Already Paid!" })
+                }
+
+                const bookingRes = await bookingCollection.insertOne(bookingData);
+
+                const bookingPaymentData = {
+                    clientEmail: email,
+                    lawyerName,
+                    amount,
+                    transactionId,
+                    paymentStatus,
+                    paymentType,
+                }
+                await bookingPaymentCollection.insertOne(bookingPaymentData)
+
+                res.send(bookingRes);
+
+
+            } catch (error) {
+                console.error("Error saving payment verification:", error);
+                res.status(500).send({ message: "Failed to save payment verification" });
+            }
+        })
+
+
+        // 5. POST API for creating Lawyer Profile
 
 
         app.post('/api/lawyer', async (req, res) => {
@@ -144,7 +244,10 @@ async function run() {
                     createdAt: new Date(),
                 };
 
-                const result = await lawyerCollection.insertOne(addData);
+                const result = await lawyerCollection.insertOne({
+                    ...addData,
+                    status: 'pending',
+                });
                 res.status(201).send(result);
             } catch (error) {
                 console.error("Error creating lawyer:", error);
@@ -153,7 +256,7 @@ async function run() {
         });
 
 
-        // 5. PATCH API to update Lawyer profile
+        // 6. PATCH API to update Lawyer profile
 
 
         app.patch('/api/lawyer/:id', async (req, res) => {
@@ -201,7 +304,7 @@ async function run() {
         });
 
 
-        // 6. DELETE API for deleting Lawyer Profile
+        // 7. DELETE API for deleting Lawyer Profile
 
 
         app.delete('/api/lawyer/:id', async (req, res) => {
