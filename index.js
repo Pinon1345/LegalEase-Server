@@ -164,6 +164,15 @@ async function run() {
         });
 
 
+        // // *. GET API for Lawyer Booking Data
+
+        // app.get('/api/lawyers/booking/:email', async (req, res) => {
+        //     const { email } = req.params;
+        //     const result = bookingCollection.find({ clientEmail: email }).toArray()
+        //     return result;
+        // })
+
+
         // 4. POST API for Lawyer Hiring Payment
 
         app.post('/api/lawyers/booking-payment', async (req, res) => {
@@ -322,6 +331,236 @@ async function run() {
                 res.status(500).send({ message: "Failed to delete lawyer profile" });
             }
         });
+
+
+
+
+        // ================= HIRING & BOOKING ROUTES =================
+
+
+
+        // 1. Create a new Hiring Request (Auto-fetches lawyerImage from database)
+
+        app.post('/api/hire-lawyer', async (req, res) => {
+            try {
+                const {
+                    lawyerId,
+                    lawyerName,
+                    lawyerImage,
+                    specialization,
+                    fee,
+                    scheduledDate,
+                    scheduledSlot,
+                    clientEmail,
+                    clientName
+                } = req.body;
+
+                if (!lawyerId || !clientEmail) {
+                    return res.status(400).send({ message: "Missing required fields" });
+                }
+
+                // Fetch lawyer profile directly from database as single source of truth
+
+                let fetchedLawyer = null;
+                if (ObjectId.isValid(lawyerId)) {
+                    fetchedLawyer = await lawyerCollection.findOne({ _id: new ObjectId(lawyerId) });
+                }
+
+                const hiringDoc = {
+                    lawyerId: new ObjectId(lawyerId),
+                    lawyerName: lawyerName || fetchedLawyer?.lawyerName || "Lawyer",
+                    // Priority: client payload image -> DB image -> fallback avatar URL
+                    lawyerImage: lawyerImage || fetchedLawyer?.lawyerImage || "https://i.ibb.co/0jK2cQVR/lawyer-1.jpg",
+                    specialization: specialization || fetchedLawyer?.specialization || "General Legal",
+                    fee: Number(fee || fetchedLawyer?.hourlyRate || 0),
+                    scheduledDate,
+                    scheduledSlot,
+                    clientEmail,
+                    clientName: clientName || "Client",
+                    status: "pending", // pending, accepted, rejected
+                    paymentStatus: "unpaid", // unpaid, paid
+                    createdAt: new Date(),
+                };
+
+                const result = await hiringCollection.insertOne(hiringDoc);
+                res.status(201).send({ success: true, insertedId: result.insertedId, doc: hiringDoc });
+            } catch (error) {
+                console.error("Error creating hire request:", error);
+                res.status(500).send({ message: "Failed to create hiring request" });
+            }
+        });
+
+
+        // 2. Get Hiring Requests with Dynamic Image Lookup
+
+        app.get('/api/hire-lawyer', async (req, res) => {
+            try {
+                const { email } = req.query;
+
+                const matchQuery = email ? { clientEmail: email } : {};
+
+                // Aggregate to dynamically attach latest lawyer details from 'lawyers' collection
+                const result = await hiringCollection.aggregate([
+                    { $match: matchQuery },
+                    { $sort: { createdAt: -1 } },
+                    {
+                        $lookup: {
+                            from: 'lawyers',
+                            localField: 'lawyerId',
+                            foreignField: '_id',
+                            as: 'lawyerDetails'
+                        }
+                    },
+                    {
+                        $addFields: {
+                            lawyerInfo: { $arrayElemAt: ['$lawyerDetails', 0] }
+                        }
+                    },
+                    {
+                        $addFields: {
+                            // Ensures lawyerImage always has a value even if missing in hiring collection
+                            lawyerImage: {
+                                $ifNull: ['$lawyerImage', '$lawyerInfo.lawyerImage', 'https://i.ibb.co/0jK2cQVR/lawyer-1.jpg']
+                            },
+                            lawyerName: {
+                                $ifNull: ['$lawyerName', '$lawyerInfo.lawyerName', 'Lawyer']
+                            },
+                            specialization: {
+                                $ifNull: ['$specialization', '$lawyerInfo.specialization', 'General Legal']
+                            }
+                        }
+                    },
+                    {
+                        $project: { lawyerDetails: 0, lawyerInfo: 0 } // Clean up temp fields
+                    }
+                ]).toArray();
+
+                res.status(200).send(result);
+            } catch (error) {
+                console.error("Error fetching hiring records:", error);
+                res.status(500).send({ message: "Failed to fetch hiring records" });
+            }
+        });
+
+
+        // 3. Fetch Client's Hiring History (With lookup fallback)
+
+        app.get('/api/user/hiring-history/:email', async (req, res) => {
+            try {
+                const { email } = req.params;
+
+                const history = await hiringCollection.aggregate([
+                    { $match: { clientEmail: email } },
+                    { $sort: { createdAt: -1 } },
+                    {
+                        $lookup: {
+                            from: 'lawyers',
+                            localField: 'lawyerId',
+                            foreignField: '_id',
+                            as: 'lawyerDetails'
+                        }
+                    },
+                    {
+                        $addFields: {
+                            lawyerInfo: { $arrayElemAt: ['$lawyerDetails', 0] }
+                        }
+                    },
+                    {
+                        $addFields: {
+                            lawyerImage: {
+                                $ifNull: ['$lawyerImage', '$lawyerInfo.lawyerImage', 'https://i.ibb.co/0jK2cQVR/lawyer-1.jpg']
+                            }
+                        }
+                    },
+                    {
+                        $project: { lawyerDetails: 0, lawyerInfo: 0 }
+                    }
+                ]).toArray();
+
+                res.status(200).send(history);
+            } catch (error) {
+                console.error("Error fetching hiring history:", error);
+                res.status(500).send({ message: "Failed to fetch hiring history" });
+            }
+        });
+
+
+        // 4. Fetch Lawyer's Incoming Requests
+
+        app.get('/api/lawyer/hiring-requests/:lawyerId', async (req, res) => {
+            try {
+                const { lawyerId } = req.params;
+                const requests = await hiringCollection
+                    .find({ lawyerId: new ObjectId(lawyerId) })
+                    .sort({ createdAt: -1 })
+                    .toArray();
+                res.status(200).send(requests);
+            } catch (error) {
+                console.error("Error fetching lawyer requests:", error);
+                res.status(500).send({ message: "Failed to fetch requests" });
+            }
+        });
+
+
+        // 5. Update Hiring Request Status (Lawyer Accept / Reject)
+
+        app.patch('/api/hiring/update-status/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const { status } = req.body; // "accepted" or "rejected"
+
+                const result = await hiringCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: { status, updatedAt: new Date() } }
+                );
+
+                res.status(200).send({ success: true, result });
+            } catch (error) {
+                console.error("Error updating hiring status:", error);
+                res.status(500).send({ message: "Failed to update status" });
+            }
+        });
+
+
+        // 6. Update Payment Status (Called after successful Stripe Checkout)
+
+        app.patch('/api/hiring/payment-success', async (req, res) => {
+            try {
+                const { hiringId, transactionId } = req.body;
+
+                // Update hiring record status to paid
+                await hiringCollection.updateOne(
+                    { _id: new ObjectId(hiringId) },
+                    { $set: { paymentStatus: "paid", updatedAt: new Date() } }
+                );
+
+                // Get updated hiring record details
+                const hiringDoc = await hiringCollection.findOne({ _id: new ObjectId(hiringId) });
+
+                // Store in payment collections
+                const paymentRecord = {
+                    hiringId: new ObjectId(hiringId),
+                    clientEmail: hiringDoc.clientEmail,
+                    lawyerId: hiringDoc.lawyerId,
+                    lawyerName: hiringDoc.lawyerName,
+                    amount: hiringDoc.fee,
+                    transactionId: transactionId || `TXN-${Date.now()}`,
+                    paymentStatus: "paid",
+                    paymentType: "hiring_fee",
+                    createdAt: new Date(),
+                };
+
+                await paymentCollection.insertOne(paymentRecord);
+                await bookingPaymentCollection.insertOne(paymentRecord);
+
+                res.status(200).send({ success: true, message: "Payment recorded successfully" });
+            } catch (error) {
+                console.error("Error processing payment success:", error);
+                res.status(500).send({ message: "Failed to process payment" });
+            }
+        });
+
+
 
 
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
