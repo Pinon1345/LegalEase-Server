@@ -484,21 +484,89 @@ async function run() {
             }
         });
 
-        
+
+
+        // 4. Fetch Lawyer's Incoming Requests
+
+        // app.get('/api/lawyer/hiring-requests/:lawyerId', async (req, res) => {
+        //     try {
+        //         const { lawyerId } = req.params;
+        //         const { email } = req.query; // Query param fallback
+
+        //         const queryConditions = [];
+
+        //         if (email) {
+        //             queryConditions.push({ lawyerEmail: email });
+        //         }
+
+        //         if (lawyerId && lawyerId !== "undefined") {
+        //             queryConditions.push({ lawyerId: lawyerId });
+        //             if (ObjectId.isValid(lawyerId)) {
+        //                 queryConditions.push({ lawyerId: new ObjectId(lawyerId) });
+        //             }
+        //         }
+
+        //         const query = queryConditions.length > 0 ? { $or: queryConditions } : {};
+
+        //         const requests = await hiringCollection
+        //             .find(query)
+        //             .sort({ createdAt: -1 })
+        //             .toArray();
+
+        //         res.status(200).send(requests);
+        //     } catch (error) {
+        //         console.error("Error fetching lawyer requests:", error);
+        //         res.status(500).send({ message: "Failed to fetch requests" });
+        //     }
+        // });
+
 
         // 4. Fetch Lawyer's Incoming Requests
 
         app.get('/api/lawyer/hiring-requests/:lawyerId', async (req, res) => {
             try {
                 const { lawyerId } = req.params;
+
+                if (!lawyerId || lawyerId === "undefined") {
+                    return res.status(400).send({ message: "Valid Lawyer ID is required" });
+                }
+
+                // 1. Find the lawyer profile from 'lawyersCollection' using the userId
+
+                const lawyerProfile = await lawyerCollection.findOne({
+                    $or: [
+                        { userId: lawyerId },
+                        ...(ObjectId.isValid(lawyerId) ? [{ _id: new ObjectId(lawyerId) }] : [])
+                    ]
+                });
+
+                // 2. Build list of potential IDs to query in hiringCollection
+
+                const targetIds = [];
+
+                if (lawyerProfile) {
+                    targetIds.push(lawyerProfile._id);
+                    targetIds.push(lawyerProfile._id.toString());
+                }
+
+                // Fallback: Also add the raw parameter ID (as string and ObjectId)
+
+                targetIds.push(lawyerId);
+                if (ObjectId.isValid(lawyerId)) {
+                    targetIds.push(new ObjectId(lawyerId));
+                }
+
+                // 3. Query hiringCollection using $in operator
                 const requests = await hiringCollection
-                    .find({ lawyerId: new ObjectId(lawyerId) })
+                    .find({ lawyerId: { $in: targetIds } })
                     .sort({ createdAt: -1 })
                     .toArray();
-                res.status(200).send(requests);
+
+                return res.status(200).send(requests);
+
             } catch (error) {
                 console.error("Error fetching lawyer requests:", error);
-                res.status(500).send({ message: "Failed to fetch requests" });
+                return res.status(500).send({ message: "Failed to fetch requests", error: error.message });
             }
         });
 
