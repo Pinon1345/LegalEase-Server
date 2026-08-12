@@ -531,6 +531,7 @@ async function run() {
             }
         });
 
+
         // 2. GET Transactions for Lawyer Dashboard
 
         app.get('/api/lawyer/transactions', async (req, res) => {
@@ -538,15 +539,25 @@ async function run() {
                 const { lawyerId, email } = req.query;
 
                 let query = {};
+
                 if (lawyerId) {
-                    query.lawyerId = lawyerId;
+                    // Build matching conditions for string, ObjectId, or fallback stored ID inside lawyerEmail
+                    const idConditions = [
+                        { lawyerId: lawyerId },
+                        { lawyerEmail: lawyerId } // Fallback if lawyerId was stored inside lawyerEmail field
+                    ];
+
+                    if (ObjectId.isValid(lawyerId)) {
+                        idConditions.push({ lawyerId: new ObjectId(lawyerId) });
+                    }
+
+                    query.$or = idConditions;
                 } else if (email) {
-                    query.lawyerEmail = email;
+                    query.lawyerEmail = email.trim().toLowerCase();
                 } else {
                     return res.status(400).json({ error: "lawyerId or email is required" });
                 }
 
-                // Find transactions where this user is the lawyer
                 const transactions = await transactionsCollection
                     .find(query)
                     .sort({ createdAt: -1 })
