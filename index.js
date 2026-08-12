@@ -869,6 +869,103 @@ async function run() {
 
 
 
+        // ========== CLIENT PROFILE RELATED API ===========
+
+
+
+        // 1. GET Client Profile Data
+
+        app.get('/api/client/profile', async (req, res) => {
+            try {
+                const email = req.query.email || req.query.clientEmail;
+                if (!email) {
+                    return res.status(400).json({ error: "Email query parameter is required" });
+                }
+
+                const client = await clientsCollection.findOne({
+                    email: { $regex: new RegExp(`^${email.trim()}$`, 'i') }
+                });
+
+                if (!client) {
+                    return res.status(404).json({ error: "Client profile not found" });
+                }
+
+                return res.status(200).json(client);
+            } catch (error) {
+                console.error("Error fetching client profile:", error);
+                return res.status(500).json({ error: "Failed to fetch profile" });
+            }
+        });
+
+
+        // 2. PATCH Update Client Profile Data
+
+        app.patch('/api/client/profile', async (req, res) => {
+            try {
+                const email = req.query.email || req.query.clientEmail;
+                if (!email) {
+                    return res.status(400).json({ error: "Email query parameter is required" });
+                }
+
+                const updateData = req.body;
+
+                // Remove _id from update payload if present
+                delete updateData._id;
+
+                const result = await clientsCollection.updateOne(
+                    { email: { $regex: new RegExp(`^${email.trim()}$`, 'i') } },
+                    { $set: { ...updateData, updatedAt: new Date() } },
+                    { upsert: true }
+                );
+
+                return res.status(200).json({
+                    message: "Profile updated successfully",
+                    result
+                });
+            } catch (error) {
+                console.error("Error updating client profile:", error);
+                return res.status(500).json({ error: "Failed to update profile" });
+            }
+        });
+
+
+        // 3. DELETE Client Profile Information
+
+        app.delete('/api/client/profile', async (req, res) => {
+            try {
+                const email = req.query.email || req.query.clientEmail;
+                if (!email) {
+                    return res.status(400).json({ error: "Email query parameter is required" });
+                }
+
+                // Resets/clears optional profile fields while keeping basic record intact
+                const resetFields = {
+                    firstName: '',
+                    middleName: '',
+                    lastName: '',
+                    phone: '',
+                    bio: '',
+                    imageUrl: '',
+                    updatedAt: new Date()
+                };
+
+                const result = await clientsCollection.updateOne(
+                    { email: { $regex: new RegExp(`^${email.trim()}$`, 'i') } },
+                    { $set: resetFields }
+                );
+
+                return res.status(200).json({
+                    message: "Profile details cleared successfully",
+                    result
+                });
+            } catch (error) {
+                console.error("Error clearing client profile:", error);
+                return res.status(500).json({ error: "Failed to delete profile information" });
+            }
+        });
+
+
+
 
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
