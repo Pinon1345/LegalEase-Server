@@ -164,58 +164,93 @@ async function run() {
         });
 
 
-        // // *. GET API for Lawyer Booking Data
-
-        // app.get('/api/lawyers/booking/:email', async (req, res) => {
-        //     const { email } = req.params;
-        //     const result = bookingCollection.find({ clientEmail: email }).toArray()
-        //     return result;
-        // })
-
 
         // 4. POST API for Lawyer Hiring Payment
 
         app.post('/api/lawyers/booking-payment', async (req, res) => {
             try {
-                const { amount, lawyerId, lawyerName, paymentStatus, email, paymentType, transactionId } = req.body;
-                // console.log(req.body);
-
-                const bookingData = {
+                const {
+                    bookingId,
+                    amount,
                     lawyerId,
                     lawyerName,
-                    amount,
-                    clientEmail: email,
-                    paymentType,
-                    transactionId,
                     paymentStatus,
-                    bookingDate: new Date(),
+                    email,
+                    paymentType,
+                    transactionId
+                } = req.body;
+
+                // 1. Check if payment already exists (Idempotency check)
+                const isBookingExist = await bookingPaymentCollection.findOne({ transactionId });
+                if (isBookingExist) {
+                    // Return 200 so Next.js res.ok is true on page reloads/re-syncs
+                    return res.status(200).json({
+                        success: true,
+                        message: "Already Paid!",
+                        result: isBookingExist
+                    });
                 }
 
-                const isBookingExist = await bookingCollection.findOne({ transactionId });
-                if (isBookingExist) {
-                    return res.status(407).send({ message: "Already Paid!" })
-                }
+                // 2. Prepare and insert main booking data
+                const bookingData = {
+                    bookingId: bookingId || null,
+                    lawyerId: lawyerId || null,
+                    lawyerName: lawyerName || "Attorney",
+                    amount: Number(amount) || 0,
+                    clientEmail: email,
+                    paymentType: paymentType || "booking",
+                    transactionId,
+                    paymentStatus: paymentStatus || "paid",
+                    bookingDate: new Date(),
+                };
 
                 const bookingRes = await bookingCollection.insertOne(bookingData);
 
+                // 3. Insert payment log into booking payment collection
                 const bookingPaymentData = {
+                    bookingId: bookingId || null,
                     clientEmail: email,
-                    lawyerName,
-                    amount,
+                    lawyerName: lawyerName || "Attorney",
+                    amount: Number(amount) || 0,
                     transactionId,
-                    paymentStatus,
-                    paymentType,
+                    paymentStatus: paymentStatus || "paid",
+                    paymentType: paymentType || "booking",
+                    paidAt: new Date()
+                };
+                await bookingPaymentCollection.insertOne(bookingPaymentData);
+
+                // 4. Safely update original hiring request in MongoDB
+                if (bookingId && ObjectId.isValid(bookingId)) {
+                    const updateResult = await hiringCollection.updateOne(
+                        { _id: new ObjectId(bookingId) },
+                        {
+                            $set: {
+                                paymentStatus: paymentStatus || 'paid',
+                                status: 'accepted',
+                                transactionId: transactionId
+                            }
+                        }
+                    );
+                    console.log(`Hiring document (${bookingId}) updated successfully:`, updateResult.modifiedCount);
+                } else {
+                    console.warn("Skipped hiringCollection update: Invalid or missing bookingId:", bookingId);
                 }
-                await bookingPaymentCollection.insertOne(bookingPaymentData)
 
-                res.send(bookingRes);
-
+                return res.status(200).json({
+                    success: true,
+                    message: "Payment recorded successfully",
+                    result: bookingRes
+                });
 
             } catch (error) {
                 console.error("Error saving payment verification:", error);
-                res.status(500).send({ message: "Failed to save payment verification" });
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to save payment verification",
+                    error: error.message
+                });
             }
-        })
+        });
 
 
         // 5. POST API for creating Lawyer Profile
