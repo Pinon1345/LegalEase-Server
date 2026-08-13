@@ -995,7 +995,6 @@ async function run() {
         });
 
 
-
         // 2. GET: Check if Client has Paid/Hired the Specific Lawyer
 
 
