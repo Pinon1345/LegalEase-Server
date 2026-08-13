@@ -1023,7 +1023,6 @@ async function run() {
             }
         });
 
-        
 
         // 3. POST: Create a New Comment
 
@@ -1063,7 +1062,6 @@ async function run() {
 
 
         // 4. PATCH: Update Comment in Client Dashboard
-
 
         app.patch('/api/comments/:id', async (req, res) => {
             try {
