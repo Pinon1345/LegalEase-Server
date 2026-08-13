@@ -47,12 +47,12 @@ async function run() {
         const lawyerCollection = db.collection('lawyers');
         const clientsCollection = db.collection('clients');
         const hiringCollection = db.collection('hiring');
-        const servicesCollection = db.collection('services');
         const paymentCollection = db.collection('payment');
         const bookingCollection = db.collection('booking');
         const bookingPaymentCollection = db.collection('booking-payment');
         const commentsCollection = db.collection('comments');
         const transactionsCollection = db.collection('transactions');
+        const servicesCollection = db.collection('services');
 
 
 
@@ -500,6 +500,7 @@ async function run() {
         // ============== PAYMENT ROUTES ==============
 
 
+
         // 1. GET Transactions for Client Dashboard
 
         app.get('/api/client/transactions', async (req, res) => {
@@ -871,7 +872,7 @@ async function run() {
 
 
         // ========== CLIENT PROFILE RELATED API ===========
-    
+
 
         // 1. GET Client Profile Data
 
@@ -963,6 +964,160 @@ async function run() {
                 return res.status(500).json({ error: "Failed to delete profile information" });
             }
         });
+
+
+
+        // ========= COMMENTS ROUTE/API ==========
+
+
+
+        // 1. GET: Fetch Comments (Filter by lawyerId OR clientEmail)
+
+
+        app.get('/api/comments', async (req, res) => {
+            try {
+                const { lawyerId, clientEmail } = req.query;
+                let query = {};
+
+                if (lawyerId) query.lawyerId = lawyerId;
+                if (clientEmail) query.clientEmail = clientEmail;
+
+                const comments = await commentsCollection
+                    .find(query)
+                    .sort({ createdAt: -1 })
+                    .toArray();
+
+                res.status(200).json(comments);
+            } catch (error) {
+                console.error("Error fetching comments:", error);
+                res.status(500).json({ error: "Failed to fetch comments" });
+            }
+        });
+
+
+
+        // 2. GET: Check if Client has Paid/Hired the Specific Lawyer
+
+
+        app.get('/api/check-payment', async (req, res) => {
+            try {
+                const { clientEmail, lawyerId } = req.query;
+
+                if (!clientEmail || !lawyerId) {
+                    return res.status(400).json({
+                        hasPaid: false,
+                        message: "Missing clientEmail or lawyerId"
+                    });
+                }
+
+                // Search bookingCollection (or bookingPaymentCollection) matching your schema
+                const booking = await bookingCollection.findOne({
+                    clientEmail: clientEmail,
+                    lawyerId: lawyerId,
+                    paymentStatus: "paid"
+                });
+
+                res.status(200).json({ hasPaid: !!booking });
+            } catch (error) {
+                console.error("Error checking payment status:", error);
+                res.status(500).json({ hasPaid: false });
+            }
+        });
+
+
+
+        // 3. POST: Create a New Comment
+
+
+        app.post('/api/comments', async (req, res) => {
+            try {
+                const { lawyerId, lawyerName, clientEmail, clientName, commentText, rating } = req.body;
+
+                // Verify that this client has a paid booking with this lawyer
+                const isHired = await bookingCollection.findOne({
+                    clientEmail: clientEmail,
+                    lawyerId: lawyerId,
+                    paymentStatus: "paid"
+                });
+
+                if (!isHired) {
+                    return res.status(403).json({ message: "You have to Pay/Hire first" });
+                }
+
+                const newComment = {
+                    lawyerId,
+                    lawyerName,
+                    clientEmail,
+                    clientName,
+                    commentText,
+                    rating: Number(rating),
+                    createdAt: new Date()
+                };
+
+                const result = await commentsCollection.insertOne(newComment);
+                res.status(201).json({ ...newComment, _id: result.insertedId });
+            } catch (error) {
+                console.error("Error creating comment:", error);
+                res.status(500).json({ error: "Failed to post comment" });
+            }
+        });
+
+
+        // 4. PATCH: Update Comment in Client Dashboard
+
+
+        app.patch('/api/comments/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const { commentText, rating } = req.body;
+
+                const updateFields = {
+                    updatedAt: new Date()
+                };
+
+                if (commentText !== undefined) updateFields.commentText = commentText;
+                if (rating !== undefined) updateFields.rating = Number(rating);
+
+                const result = await commentsCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: updateFields }
+                );
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).json({ message: "Comment not found" });
+                }
+
+                res.status(200).json({ message: "Comment updated successfully", result });
+            } catch (error) {
+                console.error("Error updating comment:", error);
+                res.status(500).json({ error: "Failed to update comment" });
+            }
+        });
+
+
+        // 5. DELETE: Delete Comment in Client Dashboard
+
+
+        app.delete('/api/comments/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+
+                const result = await commentsCollection.deleteOne({
+                    _id: new ObjectId(id)
+                });
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ message: "Comment not found" });
+                }
+
+                res.status(200).json({ message: "Comment deleted successfully", result });
+            } catch (error) {
+                console.error("Error deleting comment:", error);
+                res.status(500).json({ error: "Failed to delete comment" });
+            }
+        });
+
+
 
 
 
