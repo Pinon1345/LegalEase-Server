@@ -1115,7 +1115,10 @@ async function run() {
         });
 
 
-        // 4. PATCH API to update lawyer status / verification
+
+
+
+        // ======== PATCH API to update lawyer status / verification ========
 
 
         app.patch('/api/lawyers/:id', async (req, res) => {
@@ -1142,11 +1145,10 @@ async function run() {
 
 
 
+        // =============== ADMIN / METRICS ROUTES ===============
 
-        // ==================== ADMIN / METRICS ROUTES ====================
 
 
-        
 
         // 1. GET ALL CLIENTS / USERS (AUTH)
 
