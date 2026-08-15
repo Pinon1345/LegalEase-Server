@@ -1191,7 +1191,7 @@ async function run() {
             }
         });
 
-        
+
 
         // 3. DELETE USER
 
@@ -1214,6 +1214,7 @@ async function run() {
         });
 
 
+        
         // 4. GET ALL TRANSACTIONS
 
         app.get('/api/transactions', async (req, res) => {
