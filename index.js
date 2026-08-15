@@ -53,6 +53,7 @@ async function run() {
         const commentsCollection = db.collection('comments');
         const transactionsCollection = db.collection('transactions');
         const servicesCollection = db.collection('services');
+        const userCollection = db.collection('user');
 
 
 
@@ -1113,6 +1114,126 @@ async function run() {
             }
         });
 
+
+        // 4. PATCH API to update lawyer status / verification
+
+
+        app.patch('/api/lawyers/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const updateData = req.body;
+
+                const query = { _id: new ObjectId(id) };
+                const updateDoc = { $set: updateData };
+
+                const result = await lawyerCollection.updateOne(query, updateDoc);
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).send({ message: "Lawyer document not found." });
+                }
+
+                res.status(200).send({ message: "Lawyer updated successfully", result });
+            } catch (error) {
+                console.error("Error updating lawyer:", error);
+                res.status(500).send({ message: "Failed to update lawyer" });
+            }
+        });
+
+
+
+
+
+        // ==================== ADMIN / METRICS ROUTES ====================
+
+
+
+        // 1. GET ALL CLIENTS / USERS
+
+
+        // AUTH user 
+
+        app.get('/api/users', async (req, res) => {
+            try {
+                const users = await userCollection.find({}).toArray();
+                res.status(200).send(users);
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to fetch users', error: error.message });
+            }
+        });
+
+
+        // 2. UPDATE USER ROLE
+
+        app.patch('/api/users/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const { role } = req.body;
+
+                const filter = { _id: new ObjectId(id) };
+                const updateDoc = {
+                    $set: {
+                        role: role,
+                        updatedAt: new Date().toISOString()
+                    }
+                };
+
+                const result = await userCollection.updateOne(filter, updateDoc);
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).send({ message: 'User not found' });
+                }
+
+                res.status(200).send({ message: 'Role updated successfully', result });
+            } catch (error) {
+                console.error('Error updating user role:', error);
+                res.status(500).send({ message: 'Failed to update user role', error: error.message });
+            }
+        });
+
+
+        // 3. DELETE USER
+
+        app.delete('/api/users/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const query = { _id: new ObjectId(id) };
+
+                const result = await userCollection.deleteOne(query);
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).send({ message: 'User not found' });
+                }
+
+                res.status(200).send({ message: 'User deleted successfully', result });
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                res.status(500).send({ message: 'Failed to delete user', error: error.message });
+            }
+        });
+
+
+        // 4. GET ALL TRANSACTIONS
+
+        app.get('/api/transactions', async (req, res) => {
+            try {
+                const transactions = await transactionsCollection.find({}).toArray();
+                res.status(200).send(transactions);
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to fetch transactions', error });
+            }
+        });
+
+
+        // 5. GET ALL HIRES / BOOKINGS
+
+        app.get('/api/hires', async (req, res) => {
+            try {
+                const hires = await hiringCollection.find({}).toArray();
+                res.status(200).send(hires);
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to fetch hires', error });
+            }
+        });
 
 
 
