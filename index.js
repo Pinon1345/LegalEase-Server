@@ -1214,7 +1214,7 @@ async function run() {
         });
 
 
-        
+
         // 4. GET ALL TRANSACTIONS
 
         app.get('/api/transactions', async (req, res) => {
@@ -1237,7 +1237,6 @@ async function run() {
                 res.status(500).send({ message: 'Failed to fetch hires', error });
             }
         });
-
 
 
 
