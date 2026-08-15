@@ -1146,11 +1146,10 @@ async function run() {
         // ==================== ADMIN / METRICS ROUTES ====================
 
 
+        
 
-        // 1. GET ALL CLIENTS / USERS
+        // 1. GET ALL CLIENTS / USERS (AUTH)
 
-
-        // AUTH user 
 
         app.get('/api/users', async (req, res) => {
             try {
