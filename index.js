@@ -68,12 +68,71 @@ async function run() {
 
 
         // 1. GET API to fetch ALL lawyers (Fixes the /lawyers page & specializations filter)
+        // Include Pagination in this api
+
+
+        // app.get('/api/lawyers', async (req, res) => {
+        //     try {
+
+        //         const lawyers = await lawyerCollection.find({}).toArray();
+        //         res.status(200).send(lawyers);
+        //     } catch (error) {
+        //         console.error("Error fetching lawyers:", error);
+        //         res.status(500).send({ message: "Failed to fetch lawyers" });
+        //     }
+        // });
 
 
         app.get('/api/lawyers', async (req, res) => {
             try {
-                const lawyers = await lawyerCollection.find({}).toArray();
-                res.status(200).send(lawyers);
+                const page = parseInt(req.query.page) || 1;
+                const limit = parseInt(req.query.limit) || 9; // 9 cards per page (3x3 grid)
+                const skip = (page - 1) * limit;
+
+                const { search, specialization, availability, sortBy } = req.query;
+
+                // Build MongoDB query object
+                const query = {};
+
+                if (search) {
+                    query.$or = [
+                        { lawyerName: { $regex: search, $options: 'i' } },
+                        { specialization: { $regex: search, $options: 'i' } }
+                    ];
+                }
+
+                if (specialization && specialization !== 'All') {
+                    query.specialization = specialization;
+                }
+
+                if (availability && availability !== 'All') {
+                    query.availabilityStatus = { $regex: new RegExp(`^${availability}$`, 'i') };
+                }
+
+                // Build sort criteria
+                let sortQuery = {};
+                if (sortBy === 'price-low') sortQuery.hourlyRate = 1;
+                else if (sortBy === 'price-high') sortQuery.hourlyRate = -1;
+                else if (sortBy === 'experience') sortQuery.yearsExperience = -1;
+                else if (sortBy === 'rating') sortQuery.averageRating = -1;
+
+                // Fetch total count for pagination metadata
+                const totalLawyers = await lawyerCollection.countDocuments(query);
+
+                // Fetch paginated & sorted lawyers
+                const lawyers = await lawyerCollection.find(query)
+                    .sort(sortQuery)
+                    .skip(skip)
+                    .limit(limit)
+                    .toArray();
+
+                res.status(200).json({
+                    lawyers,
+                    totalLawyers,
+                    totalPages: Math.ceil(totalLawyers / limit) || 1,
+                    currentPage: page,
+                    limit
+                });
             } catch (error) {
                 console.error("Error fetching lawyers:", error);
                 res.status(500).send({ message: "Failed to fetch lawyers" });
