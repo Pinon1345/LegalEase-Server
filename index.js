@@ -65,12 +65,6 @@ const verifyToken = async (req, res, next) => {
 async function run() {
     try {
 
-        // Connect the client to the server (optional starting in v4.7)
-        // await client.connect();
-
-        // Send a ping to confirm a successful connection
-        // await client.db("admin").command({ ping: 1 });
-
 
         // Connect Database with Server
 
@@ -102,21 +96,6 @@ async function run() {
         // =============== LAWYER ROUTES ===============
 
 
-
-        // 1. GET API to fetch ALL lawyers (Fixes the /lawyers page & specializations filter)
-        // Include Pagination in this api
-
-
-        // app.get('/api/lawyers', async (req, res) => {
-        //     try {
-
-        //         const lawyers = await lawyerCollection.find({}).toArray();
-        //         res.status(200).send(lawyers);
-        //     } catch (error) {
-        //         console.error("Error fetching lawyers:", error);
-        //         res.status(500).send({ message: "Failed to fetch lawyers" });
-        //     }
-        // });
 
 
         app.get('/api/lawyers', async (req, res) => {
@@ -818,42 +797,7 @@ async function run() {
                 res.status(500).send({ message: "Failed to fetch hiring history" });
             }
         });
-
-
-
-        // 4. Fetch Lawyer's Incoming Requests
-
-        // app.get('/api/lawyer/hiring-requests/:lawyerId', async (req, res) => {
-        //     try {
-        //         const { lawyerId } = req.params;
-        //         const { email } = req.query; // Query param fallback
-
-        //         const queryConditions = [];
-
-        //         if (email) {
-        //             queryConditions.push({ lawyerEmail: email });
-        //         }
-
-        //         if (lawyerId && lawyerId !== "undefined") {
-        //             queryConditions.push({ lawyerId: lawyerId });
-        //             if (ObjectId.isValid(lawyerId)) {
-        //                 queryConditions.push({ lawyerId: new ObjectId(lawyerId) });
-        //             }
-        //         }
-
-        //         const query = queryConditions.length > 0 ? { $or: queryConditions } : {};
-
-        //         const requests = await hiringCollection
-        //             .find(query)
-        //             .sort({ createdAt: -1 })
-        //             .toArray();
-
-        //         res.status(200).send(requests);
-        //     } catch (error) {
-        //         console.error("Error fetching lawyer requests:", error);
-        //         res.status(500).send({ message: "Failed to fetch requests" });
-        //     }
-        // });
+       
 
 
         // 4. Fetch Lawyer's Incoming Requests
@@ -1070,7 +1014,7 @@ async function run() {
         // 1. GET: Fetch Comments (Filter by lawyerId OR clientEmail)
 
 
-        app.get('/api/comments', verifyToken, async (req, res) => {
+        app.get('/api/comments', async (req, res) => {
             try {
                 const { lawyerId, clientEmail } = req.query;
                 let query = {};
@@ -1332,6 +1276,7 @@ async function run() {
                 res.status(500).send({ message: 'Failed to fetch hires', error });
             }
         });
+
 
 
 
