@@ -5,6 +5,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 dotenv.config();
 
 const cors = require('cors');
+const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 const app = express();
 const port = process.env.PORT;
 
@@ -26,6 +27,41 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
+
+
+// Verify Backend Through JWT Token (Middleware)
+
+const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`))
+
+const verifyToken = async (req, res, next) => {
+    const authHeader = req.headers.authorization
+
+    if (!authHeader || !authHeader.startsWith("Bearer")) {
+        res.status(401).send({ message: "Unauthorized" })
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    if (!token) {
+        res.status(401).send({ message: "Unauthorized" })
+    }
+
+    try {
+        const { payload } = await jwtVerify(token, JWKS)
+
+        console.log(payload);
+        next();
+
+    } catch (error) {
+        console.log(error);
+        res.status(401).send({ message: "Unauthorized" });
+
+    }
+
+};
+
+
+
 async function run() {
     try {
 
@@ -143,7 +179,7 @@ async function run() {
         // 2. GET API to fetch Single Lawyer 
 
 
-        app.get('/api/single-lawyers/:id', async (req, res) => {
+        app.get('/api/single-lawyers/:id', verifyToken, async (req, res) => {
             const { id } = req.params;
             const query = { _id: new ObjectId(id) };
             const result = await lawyerCollection.findOne(query);
@@ -444,7 +480,7 @@ async function run() {
         // 5. POST API for creating Lawyer Profile
 
 
-        app.post('/api/lawyer', async (req, res) => {
+        app.post('/api/lawyer', verifyToken, async (req, res) => {
             try {
                 const {
                     userId,
@@ -491,7 +527,7 @@ async function run() {
         // 6. PATCH API to update Lawyer profile
 
 
-        app.patch('/api/lawyer/:id', async (req, res) => {
+        app.patch('/api/lawyer/:id', verifyToken, async (req, res) => {
             try {
                 const { id } = req.params;
                 const {
@@ -539,7 +575,7 @@ async function run() {
         // 7. DELETE API for deleting Lawyer Profile
 
 
-        app.delete('/api/lawyer/:id', async (req, res) => {
+        app.delete('/api/lawyer/:id', verifyToken, async (req, res) => {
             try {
                 const { id } = req.params;
                 const result = await lawyerCollection.deleteOne({ _id: new ObjectId(id) });
@@ -1034,7 +1070,7 @@ async function run() {
         // 1. GET: Fetch Comments (Filter by lawyerId OR clientEmail)
 
 
-        app.get('/api/comments', async (req, res) => {
+        app.get('/api/comments', verifyToken, async (req, res) => {
             try {
                 const { lawyerId, clientEmail } = req.query;
                 let query = {};
@@ -1276,7 +1312,7 @@ async function run() {
 
         // 4. GET ALL TRANSACTIONS
 
-        app.get('/api/transactions', async (req, res) => {
+        app.get('/api/transactions', verifyToken, async (req, res) => {
             try {
                 const transactions = await transactionsCollection.find({}).toArray();
                 res.status(200).send(transactions);
