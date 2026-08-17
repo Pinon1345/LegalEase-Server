@@ -33,31 +33,56 @@ const client = new MongoClient(uri, {
 
 const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`))
 
-const verifyToken = async (req, res, next) => {
-    const authHeader = req.headers.authorization
+// const verifyToken = async (req, res, next) => {
+//     const authHeader = req.headers.authorization
 
-    if (!authHeader || !authHeader.startsWith("Bearer")) {
-        res.status(401).send({ message: "Unauthorized" })
+//     if (!authHeader || !authHeader.startsWith("Bearer")) {
+//         res.status(401).send({ message: "Unauthorized" })
+//     }
+
+//     const token = authHeader.split(" ")[1];
+
+//     if (!token) {
+//         res.status(401).send({ message: "Unauthorized" })
+//     }
+
+//     try {
+//         const { payload } = await jwtVerify(token, JWKS)
+
+//         console.log(payload);
+//         next();
+
+//     } catch (error) {
+//         console.log(error);
+//         res.status(401).send({ message: "Unauthorized" });
+
+//     }
+
+// };
+
+
+const verifyToken = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).send({ message: "Unauthorized" });
     }
 
     const token = authHeader.split(" ")[1];
 
     if (!token) {
-        res.status(401).send({ message: "Unauthorized" })
+        return res.status(401).send({ message: "Unauthorized" });
     }
 
     try {
-        const { payload } = await jwtVerify(token, JWKS)
-
+        const { payload } = await jwtVerify(token, JWKS);
         console.log(payload);
+        req.user = payload;
         next();
-
     } catch (error) {
         console.log(error);
-        res.status(401).send({ message: "Unauthorized" });
-
+        return res.status(401).send({ message: "Unauthorized" });
     }
-
 };
 
 
@@ -158,7 +183,7 @@ async function run() {
         // 2. GET API to fetch Single Lawyer 
 
 
-        app.get('/api/single-lawyers/:id', verifyToken, async (req, res) => {
+        app.get('/api/single-lawyers/:id', async (req, res) => {
             const { id } = req.params;
             const query = { _id: new ObjectId(id) };
             const result = await lawyerCollection.findOne(query);
@@ -329,7 +354,7 @@ async function run() {
         // });
 
 
-        app.post('/api/lawyers/booking-payment', async (req, res) => {
+        app.post('/api/lawyers/booking-payment', verifyToken, async (req, res) => {
             try {
                 const {
                     bookingId,
@@ -655,7 +680,7 @@ async function run() {
 
         // 1. Create a new Hiring Request (Auto-fetches lawyerImage from database)
 
-        app.post('/api/hire-lawyer', async (req, res) => {
+        app.post('/api/hire-lawyer', verifyToken, async (req, res) => {
             try {
                 const {
                     lawyerId,
@@ -797,7 +822,7 @@ async function run() {
                 res.status(500).send({ message: "Failed to fetch hiring history" });
             }
         });
-       
+
 
 
         // 4. Fetch Lawyer's Incoming Requests
@@ -941,7 +966,7 @@ async function run() {
 
         // 2. PATCH Update Client Profile Data
 
-        app.patch('/api/client/profile', async (req, res) => {
+        app.patch('/api/client/profile', verifyToken, async (req, res) => {
             try {
                 const email = req.query.email || req.query.clientEmail;
                 if (!email) {
@@ -972,7 +997,7 @@ async function run() {
 
         // 3. DELETE Client Profile Information
 
-        app.delete('/api/client/profile', async (req, res) => {
+        app.delete('/api/client/profile', verifyToken, async (req, res) => {
             try {
                 const email = req.query.email || req.query.clientEmail;
                 if (!email) {
@@ -1014,7 +1039,7 @@ async function run() {
         // 1. GET: Fetch Comments (Filter by lawyerId OR clientEmail)
 
 
-        app.get('/api/comments', async (req, res) => {
+        app.get('/api/comments', verifyToken, async (req, res) => {
             try {
                 const { lawyerId, clientEmail } = req.query;
                 let query = {};
@@ -1067,7 +1092,7 @@ async function run() {
         // 3. POST: Create a New Comment
 
 
-        app.post('/api/comments', async (req, res) => {
+        app.post('/api/comments', verifyToken, async (req, res) => {
             try {
                 const { lawyerId, lawyerName, clientEmail, clientName, commentText, rating } = req.body;
 
@@ -1103,7 +1128,7 @@ async function run() {
 
         // 4. PATCH: Update Comment in Client Dashboard
 
-        app.patch('/api/comments/:id', async (req, res) => {
+        app.patch('/api/comments/:id', verifyToken, async (req, res) => {
             try {
                 const { id } = req.params;
                 const { commentText, rating } = req.body;
@@ -1134,7 +1159,7 @@ async function run() {
 
         // 5. DELETE: Delete Comment in Client Dashboard
 
-        app.delete('/api/comments/:id', async (req, res) => {
+        app.delete('/api/comments/:id', verifyToken, async (req, res) => {
             try {
                 const { id } = req.params;
 
