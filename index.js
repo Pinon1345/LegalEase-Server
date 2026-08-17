@@ -354,7 +354,7 @@ async function run() {
         // });
 
 
-        app.post('/api/lawyers/booking-payment', verifyToken, async (req, res) => {
+        app.post('/api/lawyers/booking-payment', async (req, res) => {
             try {
                 const {
                     bookingId,
@@ -484,7 +484,7 @@ async function run() {
         // 5. POST API for creating Lawyer Profile
 
 
-        app.post('/api/lawyer', verifyToken, async (req, res) => {
+        app.post('/api/lawyer', async (req, res) => {
             try {
                 const {
                     userId,
@@ -531,7 +531,7 @@ async function run() {
         // 6. PATCH API to update Lawyer profile
 
 
-        app.patch('/api/lawyer/:id', verifyToken, async (req, res) => {
+        app.patch('/api/lawyer/:id', async (req, res) => {
             try {
                 const { id } = req.params;
                 const {
@@ -579,7 +579,7 @@ async function run() {
         // 7. DELETE API for deleting Lawyer Profile
 
 
-        app.delete('/api/lawyer/:id', verifyToken, async (req, res) => {
+        app.delete('/api/lawyer/:id', async (req, res) => {
             try {
                 const { id } = req.params;
                 const result = await lawyerCollection.deleteOne({ _id: new ObjectId(id) });
@@ -680,7 +680,7 @@ async function run() {
 
         // 1. Create a new Hiring Request (Auto-fetches lawyerImage from database)
 
-        app.post('/api/hire-lawyer', verifyToken, async (req, res) => {
+        app.post('/api/hire-lawyer', async (req, res) => {
             try {
                 const {
                     lawyerId,
@@ -966,7 +966,7 @@ async function run() {
 
         // 2. PATCH Update Client Profile Data
 
-        app.patch('/api/client/profile', verifyToken, async (req, res) => {
+        app.patch('/api/client/profile', async (req, res) => {
             try {
                 const email = req.query.email || req.query.clientEmail;
                 if (!email) {
@@ -997,7 +997,7 @@ async function run() {
 
         // 3. DELETE Client Profile Information
 
-        app.delete('/api/client/profile', verifyToken, async (req, res) => {
+        app.delete('/api/client/profile', async (req, res) => {
             try {
                 const email = req.query.email || req.query.clientEmail;
                 if (!email) {
@@ -1039,7 +1039,7 @@ async function run() {
         // 1. GET: Fetch Comments (Filter by lawyerId OR clientEmail)
 
 
-        app.get('/api/comments', verifyToken, async (req, res) => {
+        app.get('/api/comments', async (req, res) => {
             try {
                 const { lawyerId, clientEmail } = req.query;
                 let query = {};
@@ -1092,7 +1092,7 @@ async function run() {
         // 3. POST: Create a New Comment
 
 
-        app.post('/api/comments', verifyToken, async (req, res) => {
+        app.post('/api/comments', async (req, res) => {
             try {
                 const { lawyerId, lawyerName, clientEmail, clientName, commentText, rating } = req.body;
 
@@ -1128,7 +1128,7 @@ async function run() {
 
         // 4. PATCH: Update Comment in Client Dashboard
 
-        app.patch('/api/comments/:id', verifyToken, async (req, res) => {
+        app.patch('/api/comments/:id', async (req, res) => {
             try {
                 const { id } = req.params;
                 const { commentText, rating } = req.body;
@@ -1159,7 +1159,7 @@ async function run() {
 
         // 5. DELETE: Delete Comment in Client Dashboard
 
-        app.delete('/api/comments/:id', verifyToken, async (req, res) => {
+        app.delete('/api/comments/:id', async (req, res) => {
             try {
                 const { id } = req.params;
 
@@ -1281,7 +1281,7 @@ async function run() {
 
         // 4. GET ALL TRANSACTIONS
 
-        app.get('/api/transactions', verifyToken, async (req, res) => {
+        app.get('/api/transactions', async (req, res) => {
             try {
                 const transactions = await transactionsCollection.find({}).toArray();
                 res.status(200).send(transactions);
